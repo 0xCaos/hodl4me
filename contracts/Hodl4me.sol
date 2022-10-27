@@ -19,89 +19,78 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract Hodl4me is Ownable{
 
   /** @notice Will release all Piggy Banks for withdrawal by their owners */ 
-  bool releaseAll;
+  bool public releaseAll;
 
   /** 
   * @dev This struct contains the following members
-  * tokenName: A string containing the ERC20 token Name
-  * tokenAddress: Contains the ERC20 token's contract address
-  * depositsAllowed: Boolean allowing for new deposits
+  * hodlToken: Contains the ERC20 token's contract address
+  * tokenAmount: Amount of tokens locked 
+  * timeOfDeposit: Unix timestamp of the moment of deposit
+  * hodlPeriod: Unix timestamp at which user can withdraw tokens
+  * active: Boolean that returns true if Hodl Bank holds funds
   */
-  struct HodlBankIdDetails { 
-    string  tokenName; //Is it required?
-    address tokenAddress;
-    bool    depositsAllowed;
+  struct HodlBankDetails { 
+    address hodlToken;
+    uint    tokenAmount;
+    uint    timeOfDeposit;
+    uint    hodlPeriod;
+    bool    active;
   }
 
-  /** 
-  * @dev This struct contains the following members
-  * tokenName: A string containing the ERC20 token Name
-  * tokenAddress: Contains the ERC20 token's contract address
-  * lockedAmount: Amount of tokens locked 
-  * lockedPeriod: Unix timestamp at which user can withdraw tokens
-  */
-  struct UserHodlBank { 
-    uint    userHodlBankId;
-    uint    lockedAmount;
-    uint    lockedPeriod;
-  }
+  /** @dev An array of UserHodlBank structs */
+  HodlBankDetails[] public hodlBanks;
 
-  /** @dev Number of active Hodl Banks */
-  uint activeHodlBanks;
-  /** @dev ID mapping to HodlBankIdDetails struct containing Hodl Bank info */
-  mapping(uint => HodlBankIdDetails) public HodlBankId;
-
-  /** @dev User's address mapping to a Hodl Bank ID mapping contaning user's token HodlBank */
-  // Q: Should I keep track of how many HodlBanks the user has or should I just let the front-end scan until
-  // it reaches zeroes?
-  mapping(address => mapping(uint => HodlBank)) public userWalletBalance;
-
-  /** @dev Initialise contract with ETH piggy bank already allowed */
-  constructor() {
-    activeHodlBanks = 1;
-    HodlBankId[0].tokenName = "ETH";
-    HodlBankId[0].depositsAllowed = true;
-  }
-
-  /** @dev Allow users to withdraw funds before lockedPeriod is reached */
-  function allowWithdrawals() public onlyOwner {
-      releaseAll = !releaseAll;
-  }
-
-  /** 
-  * @dev Contract owner can allow owners to withdraw funds before lockedPeriod is reached 
-  * @param _hodlBankId ID to Hodl Bank to allow/block for new deposits
-  */
-  function allowDeposits(uint _hodlBankId) public onlyOwner {
-      HodlBankId[activeHodlBanks].depositsAllowed = !HodlBankId[activeHodlBanks].depositsAllowed;
-  }
+  /** @dev User's address mapping to an array of hodlBanks */
+  mapping(address => hodlBanks) public userHodlBanks;
 
   /**
-    * @dev Function that creates a new Hodl Bank
-    * @param _tokenName The name of the ERC20 Token //Q: Can I retrieve this info using tokenAddress?
-    * @param _tokenAddress ERC20 token contract address
-    * @param _depositsAllowed Allow/Block new deposits for particular token
-    */
-  function createHodlBank(string _tokenName, address _tokenAddress, bool _depositsAllowed) public onlyOwner {
-    // Q: Should I iterate through activeHodlBanks to see if _tokenAddress already exists?
-    HodlBankId[activeHodlBanks].tokenName = _tokenName;
-    HodlBankId[activeHodlBanks].tokenAddress = _tokenAddress;
-    HodlBankId[activeHodlBanks].depositsAllowed = _depositsAllowed;
-    activeHodlBanks += 1;
+    * @dev Events used by Front-end to easily list user's active Hodl Banks
+    * @param user Owner's address of newly created Hodl Bank
+    * @param hodlBankId Index of user's newly created HodlBankDetails
+  */
+  event NewDeposit(address indexed user, uint hodlBankId);
+  /**
+    * @dev Events used by Front-end to easily list user's active Hodl Banks
+    * @param user User's address of Hodl Bank just withdrawn
+    * @param hodlBankId HodlBankDetails Index that just got withdrawn
+  */
+  event NewWithdrawal(address indexed user, uint hodlBankId);
+
+  /** @dev Allow all users to withdraw funds before lockedPeriod is reached */
+  function allowWithdrawals() public onlyOwner {
+      releaseAll = !releaseAll;
   }
 
   /**
     * @dev Function for the deposit of tokens into Hodl Bank
     * @param _user The user address that will be allowed to withdraw funds in the future
-    * @param _timestamp Unix timestamp until deposited funds are unlocked
+    * @param _hodlPeriod Unix timestamp until deposited funds are unlocked
+    * @param _hodlToken: Contains the ERC20 token's contract address
+    * @param _tokenAmount: Amount of tokens locked 
     * Emits a {Deposited} event.
     */
-  function hodlDeposit(address payable _user, uint _hodlBankId, uint _lockedAmount, uint _lockedPeriod) payable public {
-      HodlBankId[] = 
-      // Requires user to send Ether when using the function
-      //require(msg.value > 0 ether, "Ether value sent to address has to be greater than zero");
-      // Increment user balance
-      //userWalletBalance[_user] += msg.value;
+  function hodlDeposit(address payable _user, address _hodlToken, uint _tokenAmount, uint _hodlPeriod) payable public {
+    require(_hodlPeriod > block.timestamp, "Choose an unlock time in the future");
+
+    if (_hodlToken = 0) { //Deposit Ether
+      require(msg.value > 0, "Amount can't be zero");
+    } else {  // Deposit ERC20
+      require(_tokenAmount > 0, "Amount can't be zero");
+      require(isContract(_hodlToken) == true, "Address needs to be a contract");
+      // require token transfer to be allowed (maybe done though FE?)
+      // transfer funds to contract
+      // set _tokenAmount int variable
+    }
+    // read hodlBankCount and add 1
+    uint memory hodlBankCount = getHodlBankCount(_user).add(1);
+    // set _tokenAmount, _hodlToken, _hodlPeriod, timeOfDeposit and active;
+    HodlBankId[activeHodlBanks].tokenName = _tokenName;
+    // Requires user to send Ether when using the function
+    //require(msg.value > 0 ether, "Ether value sent to address has to be greater than zero");
+    // Increment user balance
+    //userWalletBalance[_user] += msg.value;
+    allPairs.push(pair);
+    emit NewDeposit(_user, _hodlBankId);
   }
 
   function hodlWithdrawal(address payable _receiver, uint _amount) public {
@@ -111,12 +100,31 @@ contract Hodl4me is Ownable{
       userWalletBalance[msg.sender] -= _amount;
       // Send Ether to receiver wallet
       _receiver.transfer(_amount);
+      emit NewWithdrawal(_user, _hodlBankId);
   }
 
+  /** @notice Helper functions */
 
-  //Q: Not sure if required
-  // function addNewToken() public onlyOwner {
+  /**
+    * @dev Function that returns the number of Hodl Banks that the user has created regardless
+    * if active or not
+    * @param _user User to get the Hodl Bank count from
+    * @return hodlBankCount Number of hodlBankCount the user has (regardless if active or not)
+  */
+  function getHodlBankCount(address _user) public view returns(uint hodlBankCount) {
+    return userHodlBanks[_user].length;
+  }
 
-  // }
+  /**
+    * @dev Simple private function to verify whether given address is at least from a contract.
+    * @notice This function only guarantees that given address is a contract, not necessarily
+    * an ERC20 contract.
+    * @param _hodlToken Contract address
+    * @return _isContract Returns true if the address given is from a contract
+  */
+  function isContract(address _hodlToken) private returns (bool _isContract) {    
+    return addr.code.length > 0; 
+  }
+
 
 }
