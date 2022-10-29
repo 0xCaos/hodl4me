@@ -37,11 +37,8 @@ contract Hodl4me is Ownable{
     bool    active;
   }
 
-  /** @dev An array of UserHodlBank structs */
-  HodlBankDetails[] public hodlBanks;
-
-  /** @dev User's address mapping to an array of hodlBanks */
-  mapping(address => hodlBanks) public userHodlBanks;
+  /** @dev User's address mapping to an array of HodlBankDetails objects */
+  mapping(address => HodlBankDetails[]) public userHodlBanks;
 
   /**
     * @dev Events used by Front-end to easily list user's active Hodl Banks
@@ -72,27 +69,32 @@ contract Hodl4me is Ownable{
   function hodlDeposit(address payable _user, address _hodlToken, uint _tokenAmount, uint _hodlPeriod) payable public {
     require(_hodlPeriod > block.timestamp, "Unlock time needs to be in the future");
 
-    /** @dev New index of Hodl Banks that the user has created ever */
-    uint memory _hodlBankId = getHodlBankCount(_user).add(1);
+    /** @dev New object to be pushed into userHodlBanks */
+    HodlBankDetails memory _newHodlBank;
 
-    if (_hodlToken = 0) { // User is depositing Ether
+    if (_hodlToken = 0) { /** @dev User depositing Ether */
       require(msg.value > 0, "Amount can't be zero");
-      userHodlBanks[_user][userHodlBankCount].tokenAmount = msg.value;
-    } else {  // Deposit ERC20
+      _newHodlBank.tokenAmount = msg.value;
+    } else {  /** @dev User depositing ERC20 token */
       require(_tokenAmount > 0, "Amount can't be zero");
       require(_isContract(_hodlToken) == true, "Address needs to be a contract");
       // TODO: require token transfer to be allowed (maybe done though FE?)
       // transfer funds to contract
       // set _tokenAmount AFTER transfer
-      userHodlBanks[_user][userHodlBankCount].tokenAmount = _tokenAmount;
-      userHodlBanks[_user][userHodlBankCount].hodlToken = _hodlToken;
+      _newHodlBank.tokenAmount = _tokenAmount;
+      _newHodlBank.hodlToken = _hodlToken;
     }
 
-    // Set hodlPeriod, timeOfDeposit and active
-    userHodlBanks[_user][userHodlBankCount].timeOfDeposit = block.timestamp;
-    userHodlBanks[_user][userHodlBankCount].hodlPeriod = _hodlPeriod;
-    userHodlBanks[_user][userHodlBankCount].active = true;
-    allPairs.push(pair);
+    /** @dev Set hodlPeriod, timeOfDeposit and active */
+    _newHodlBank.timeOfDeposit = block.timestamp;
+    _newHodlBank.hodlPeriod = _hodlPeriod;
+    _newHodlBank.active = true;
+
+    /** @dev Index to new Hodl Bank created by user */
+    uint memory _hodlBankId = getHodlBankCount(_user).add(1);
+    /** @dev Push new _newHodlBank object into user's Hodl Bank mapping */
+    userHodlBanks[_user].push(_newHodlBank);
+
     emit NewDeposit(_user, _hodlBankId);
   }
 
