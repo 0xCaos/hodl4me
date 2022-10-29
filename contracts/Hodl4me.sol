@@ -37,11 +37,8 @@ contract Hodl4me is Ownable{
     bool    active;
   }
 
-  /** @dev An array of UserHodlBank structs */
-  HodlBankDetails[] public hodlBanks;
-
-  /** @dev User's address mapping to an array of hodlBanks */
-  mapping(address => hodlBanks) public userHodlBanks;
+  /** @dev User's address mapping to an array of HodlBankDetails objects */
+  mapping(address => HodlBankDetails[]) public userHodlBanks;
 
   /**
     * @dev Events used by Front-end to easily list user's active Hodl Banks
@@ -70,26 +67,34 @@ contract Hodl4me is Ownable{
     * Emits a {Deposited} event.
     */
   function hodlDeposit(address payable _user, address _hodlToken, uint _tokenAmount, uint _hodlPeriod) payable public {
-    require(_hodlPeriod > block.timestamp, "Choose an unlock time in the future");
+    require(_hodlPeriod > block.timestamp, "Unlock time needs to be in the future");
 
-    if (_hodlToken = 0) { //Deposit Ether
+    /** @dev New object to be pushed into userHodlBanks */
+    HodlBankDetails memory _newHodlBank;
+
+    if (_hodlToken = 0) { /** @dev User depositing Ether */
       require(msg.value > 0, "Amount can't be zero");
-    } else {  // Deposit ERC20
+      _newHodlBank.tokenAmount = msg.value;
+    } else {  /** @dev User depositing ERC20 token */
       require(_tokenAmount > 0, "Amount can't be zero");
-      require(isContract(_hodlToken) == true, "Address needs to be a contract");
-      // require token transfer to be allowed (maybe done though FE?)
+      require(_isContract(_hodlToken) == true, "Address needs to be a contract");
+      // TODO: require token transfer to be allowed (maybe done though FE?)
       // transfer funds to contract
-      // set _tokenAmount int variable
+      // set _tokenAmount AFTER transfer
+      _newHodlBank.tokenAmount = _tokenAmount;
+      _newHodlBank.hodlToken = _hodlToken;
     }
-    // read hodlBankCount and add 1
-    uint memory hodlBankCount = getHodlBankCount(_user).add(1);
-    // set _tokenAmount, _hodlToken, _hodlPeriod, timeOfDeposit and active;
-    HodlBankId[activeHodlBanks].tokenName = _tokenName;
-    // Requires user to send Ether when using the function
-    //require(msg.value > 0 ether, "Ether value sent to address has to be greater than zero");
-    // Increment user balance
-    //userWalletBalance[_user] += msg.value;
-    allPairs.push(pair);
+
+    /** @dev Set hodlPeriod, timeOfDeposit and active */
+    _newHodlBank.timeOfDeposit = block.timestamp;
+    _newHodlBank.hodlPeriod = _hodlPeriod;
+    _newHodlBank.active = true;
+
+    /** @dev Index to new Hodl Bank created by user */
+    uint memory _hodlBankId = getHodlBankCount(_user).add(1);
+    /** @dev Push new _newHodlBank object into user's Hodl Bank mapping */
+    userHodlBanks[_user].push(_newHodlBank);
+
     emit NewDeposit(_user, _hodlBankId);
   }
 
@@ -120,9 +125,9 @@ contract Hodl4me is Ownable{
     * @notice This function only guarantees that given address is a contract, not necessarily
     * an ERC20 contract.
     * @param _hodlToken Contract address
-    * @return _isContract Returns true if the address given is from a contract
+    * @return isContract Returns true if the address given is from a contract
   */
-  function isContract(address _hodlToken) private returns (bool _isContract) {    
+  function _isContract(address _hodlToken) private returns (bool isContract) {    
     return addr.code.length > 0; 
   }
 
