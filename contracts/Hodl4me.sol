@@ -17,6 +17,10 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * the user will be rewarded with HODL4ME tokens. These are liquid and can be redeemed
  * at any time.
  */
+
+/** @dev Custom error returns Unix timestamp at which Hodl Bank's witdrawal is authorised */
+error StillLocked(uint required);
+
 contract Hodl4me is Ownable{
 
   using SafeERC20 for IERC20;
@@ -41,7 +45,7 @@ contract Hodl4me is Ownable{
   }
 
   /** @dev User's address mapping to an array of HodlBankDetails objects */
-  mapping(address => HodlBankDetails[]) public userHodlBanks;
+  mapping(address => HodlBankDetails[]) internal userHodlBanks;
 
   /**
     * @dev Events used by Front-end to easily list user's active Hodl Banks
@@ -54,10 +58,10 @@ contract Hodl4me is Ownable{
     * @param user User's address of Hodl Bank just withdrawn
     * @param hodlBankId HodlBankDetails Index that just got withdrawn
   */
-  event NewWithdrawal(address indexed user, uint hodlBankId);
+  event Withdraw(address indexed user, uint hodlBankId);
 
   /** @dev Allow all users to withdraw funds before lockedPeriod is reached */
-  function allowWithdrawals() public onlyOwner {
+  function allowWithdrawals() external onlyOwner {
       releaseAll = !releaseAll;
   }
 
@@ -69,7 +73,11 @@ contract Hodl4me is Ownable{
     * @param _tokenAmount Amount of tokens to be locked 
     * Emits a {Deposited} event.
     */
-  function hodlDeposit(address payable _user, address _hodlToken, uint _tokenAmount, uint _hodlPeriod) payable external {
+  function hodlDeposit(address _user, 
+                      address _hodlToken, 
+                      uint _tokenAmount, 
+                      uint _hodlPeriod
+  ) payable external {
     require(_hodlPeriod > block.timestamp, "Unlock time needs to be in the future");
 
     /** @dev New object to be pushed into userHodlBanks */
@@ -100,14 +108,30 @@ contract Hodl4me is Ownable{
     emit NewDeposit(_user, _hodlBankId);
   }
 
-  function hodlWithdrawal(address payable _receiver, uint _amount) payable external {
-      // Requires enough balance in user's contract wallet 
-      require(userWalletBalance[msg.sender] >= _amount, "Not enough balance in wallet");
-      // Decrement sender's wallet balance
-      userWalletBalance[msg.sender] -= _amount;
-      // Send Ether to receiver wallet
-      _receiver.transfer(_amount);
-      emit NewWithdrawal(_user, _hodlBankId);
+  /**
+    * @dev Function to withdraw from a particular HODL Bank
+    * @param _hodlBankId ID number of the HODL Bank the user wishes to withdraw from
+    * Emits a {Withdraw} event.
+    */
+  function hodlWithdrawal(uint _hodlBankId) external {
+    require(userHodlBanks[msg.sender][_hodlBankId].active == true, "User already withdrawn from this Hodl Bank");
+    // Custom error message if Hodl Period hasn't been reached yet
+    if (userHodlBanks[msg.sender][_hodlBankId].hodlPeriod > block.timestamp)
+      revert StillLocked({
+        required: userHodlBanks[msg.sender][_hodlBankId].hodlPeriod
+      });
+
+    if (userHodlBanks[msg.sender][_hodlBankId].hodlToken = 0) { /** @dev Hodl Bank contains Ether */
+      // Sending Ether from Hodl Bank back to Hodler
+      msg.sender.transfer(userHodlBanks[msg.sender][_hodlBankId].tokenAmount);
+    } else {  /** @dev Hodl Bank contains ERC20 token */
+      // Sending ERC20 token from Hodl Bank back to Hodler
+      IERC20(_hodlToken).safeTransferFrom(msg.sender, address(this), _tokenAmount);
+    }
+
+    /** @dev Setting active variable of Hodl Bank to false, flagging user has already withdrawn from Hodl Bank */
+    userHodlBanks[msg.sender][_hodlBankId].active == false;
+    emit Withdraw(msg.sender, _hodlBankId);
   }
 
   /** @notice Public helper functions */
@@ -137,17 +161,13 @@ contract Hodl4me is Ownable{
       uint _tokenAmount,
       uint _timeOfDeposit,
       uint _hodlPeriod,
-      bool _active) {
+      bool _active
+  ) {
     return (userHodlBanks[_user][_hodlBankId].hodlToken,
             userHodlBanks[_user][_hodlBankId].tokenAmount,
             userHodlBanks[_user][_hodlBankId].timeOfDeposit,
             userHodlBanks[_user][_hodlBankId].hodlPeriod,
             userHodlBanks[_user][_hodlBankId].active);
-  }
-
-  function safeInteractWithToken(uint256 sendAmount) external {
-      IERC20 token = IERC20(address(this));
-      token.safeTransferFrom(msg.sender, address(this), sendAmount);
   }
 
   /** @notice Private helper functions */
@@ -162,40 +182,5 @@ contract Hodl4me is Ownable{
   function _isContract(address _hodlToken) private returns (bool isContract) {    
     return addr.code.length > 0; 
   }
-
-  // Taken from Bridge https://polygonscan.com/address/0x88DCDC47D2f83a99CF0000FDF667A468bB958a78#code
-    function send(
-        address _receiver,
-        address _token,
-        uint256 _amount,
-        uint64 _dstChainId,
-        uint64 _nonce,
-        uint32 _maxSlippage // slippage * 1M, eg. 0.5% -> 5000
-    ) external nonReentrant whenNotPaused {
-        bytes32 transferId = _send(_receiver, _token, _amount, _dstChainId, _nonce, _maxSlippage);
-        
-        emit Send(transferId, msg.sender, _receiver, _token, _amount, _dstChainId, _nonce, _maxSlippage);
-    }
-
-    function _send(
-        address _receiver,
-        address _token,
-        uint256 _amount,
-        uint64 _dstChainId,
-        uint64 _nonce,
-        uint32 _maxSlippage
-    ) private returns (bytes32) {
-        require(_amount > minSend[_token], "amount too small");
-        require(maxSend[_token] == 0 || _amount <= maxSend[_token], "amount too large");
-        require(_maxSlippage > minimalMaxSlippage, "max slippage too small");
-        bytes32 transferId = keccak256(
-            // uint64(block.chainid) for consistency as entire system uses uint64 for chain id
-            abi.encodePacked(msg.sender, _receiver, _token, _amount, _dstChainId, _nonce, uint64(block.chainid))
-        );
-        require(transfers[transferId] == false, "transfer exists");
-        transfers[transferId] = true;
-        return transferId;
-    }
-
 
 }
