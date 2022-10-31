@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.16;
+pragma solidity ^0.9.0;
 
-import "@openzeppelin/contracts/ownership/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @title HodlForMe
@@ -17,6 +18,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * at any time.
  */
 contract Hodl4me is Ownable{
+
+  using SafeERC20 for IERC20;
 
   /** @notice Will release all Piggy Banks for withdrawal by their owners */ 
   bool public releaseAll;
@@ -62,25 +65,24 @@ contract Hodl4me is Ownable{
     * @dev Function for the deposit of tokens into Hodl Bank
     * @param _user The user address that will be allowed to withdraw funds in the future
     * @param _hodlPeriod Unix timestamp until deposited funds are unlocked
-    * @param _hodlToken: Contains the ERC20 token's contract address
-    * @param _tokenAmount: Amount of tokens locked 
+    * @param _hodlToken Contains the ERC20 token's contract address
+    * @param _tokenAmount Amount of tokens to be locked 
     * Emits a {Deposited} event.
     */
-  function hodlDeposit(address payable _user, address _hodlToken, uint _tokenAmount, uint _hodlPeriod) payable public {
+  function hodlDeposit(address payable _user, address _hodlToken, uint _tokenAmount, uint _hodlPeriod) payable external {
     require(_hodlPeriod > block.timestamp, "Unlock time needs to be in the future");
 
     /** @dev New object to be pushed into userHodlBanks */
     HodlBankDetails memory _newHodlBank;
 
-    if (_hodlToken = 0) { /** @dev User depositing Ether */
-      require(msg.value > 0, "Amount can't be zero");
+    if (_hodlToken = 0) { /** @dev Address zero assumes User is depositing Ether */
+      require(msg.value > 0, "Ether amount can't be zero");
       _newHodlBank.tokenAmount = msg.value;
     } else {  /** @dev User depositing ERC20 token */
-      require(_tokenAmount > 0, "Amount can't be zero");
+      require(_tokenAmount > 0, "Token amount can't be zero");
       require(_isContract(_hodlToken) == true, "Address needs to be a contract");
-      // TODO: require token transfer to be allowed (maybe done though FE?)
-      // transfer funds to contract
-      // set _tokenAmount AFTER transfer
+      // Sending tokens from function caller to Hodl Bank
+      IERC20(_hodlToken).safeTransferFrom(msg.sender, address(this), _tokenAmount);
       _newHodlBank.tokenAmount = _tokenAmount;
       _newHodlBank.hodlToken = _hodlToken;
     }
@@ -98,7 +100,7 @@ contract Hodl4me is Ownable{
     emit NewDeposit(_user, _hodlBankId);
   }
 
-  function hodlWithdrawal(address payable _receiver, uint _amount) public {
+  function hodlWithdrawal(address payable _receiver, uint _amount) payable external {
       // Requires enough balance in user's contract wallet 
       require(userWalletBalance[msg.sender] >= _amount, "Not enough balance in wallet");
       // Decrement sender's wallet balance
@@ -108,17 +110,47 @@ contract Hodl4me is Ownable{
       emit NewWithdrawal(_user, _hodlBankId);
   }
 
-  /** @notice Helper functions */
+  /** @notice Public helper functions */
 
   /**
     * @dev Function that returns the number of Hodl Banks that the user has created regardless
-    * if active or not
+    * if active or not - public function is called from within protocol
     * @param _user User to get the Hodl Bank count from
     * @return hodlBankCount Number of hodlBankCount the user has (regardless if active or not)
   */
   function getHodlBankCount(address _user) public view returns(uint hodlBankCount) {
     return userHodlBanks[_user].length;
   }
+
+  /**
+    * @dev This function returns values from user's Hodl Bank
+    * @notice Function required: Solidity does not allow for returning array of objects
+    * @param _user User's address to get the Hodl Bank info from
+    * @param _hodlBankId ID of Hodl Bank to get info from
+    * @return _hodlToken Contains the ERC20 token's contract address
+    * @return _tokenAmount Amount of tokens locked
+    * @return _timeOfDeposit Unix timestamp of the moment of deposit
+    * @return _hodlPeriod Unix timestamp at which user can withdraw tokens
+    * @return _active Boolean that returns true if Hodl Bank holds funds
+  */
+  function getHodlBankInfo(address _user, uint _hodlBankId) public view returns(address _hodlToken,
+      uint _tokenAmount,
+      uint _timeOfDeposit,
+      uint _hodlPeriod,
+      bool _active) {
+    return (userHodlBanks[_user][_hodlBankId].hodlToken,
+            userHodlBanks[_user][_hodlBankId].tokenAmount,
+            userHodlBanks[_user][_hodlBankId].timeOfDeposit,
+            userHodlBanks[_user][_hodlBankId].hodlPeriod,
+            userHodlBanks[_user][_hodlBankId].active);
+  }
+
+  function safeInteractWithToken(uint256 sendAmount) external {
+      IERC20 token = IERC20(address(this));
+      token.safeTransferFrom(msg.sender, address(this), sendAmount);
+  }
+
+  /** @notice Private helper functions */
 
   /**
     * @dev Simple private function to verify whether given address is at least from a contract.
@@ -130,6 +162,40 @@ contract Hodl4me is Ownable{
   function _isContract(address _hodlToken) private returns (bool isContract) {    
     return addr.code.length > 0; 
   }
+
+  // Taken from Bridge https://polygonscan.com/address/0x88DCDC47D2f83a99CF0000FDF667A468bB958a78#code
+    function send(
+        address _receiver,
+        address _token,
+        uint256 _amount,
+        uint64 _dstChainId,
+        uint64 _nonce,
+        uint32 _maxSlippage // slippage * 1M, eg. 0.5% -> 5000
+    ) external nonReentrant whenNotPaused {
+        bytes32 transferId = _send(_receiver, _token, _amount, _dstChainId, _nonce, _maxSlippage);
+        
+        emit Send(transferId, msg.sender, _receiver, _token, _amount, _dstChainId, _nonce, _maxSlippage);
+    }
+
+    function _send(
+        address _receiver,
+        address _token,
+        uint256 _amount,
+        uint64 _dstChainId,
+        uint64 _nonce,
+        uint32 _maxSlippage
+    ) private returns (bytes32) {
+        require(_amount > minSend[_token], "amount too small");
+        require(maxSend[_token] == 0 || _amount <= maxSend[_token], "amount too large");
+        require(_maxSlippage > minimalMaxSlippage, "max slippage too small");
+        bytes32 transferId = keccak256(
+            // uint64(block.chainid) for consistency as entire system uses uint64 for chain id
+            abi.encodePacked(msg.sender, _receiver, _token, _amount, _dstChainId, _nonce, uint64(block.chainid))
+        );
+        require(transfers[transferId] == false, "transfer exists");
+        transfers[transferId] = true;
+        return transferId;
+    }
 
 
 }
