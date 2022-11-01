@@ -11,5 +11,13 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.7.3",
+    "@openzeppelin/test-helpers": "^0.5.16"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github-0xcaos:0xCaos/hodl4me.git"
+  }
 }

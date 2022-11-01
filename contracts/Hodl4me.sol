@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.9.0;
+pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/ownership/Ownable.sol";
 
 /**
  * @title HodlForMe
@@ -25,7 +26,8 @@ contract Hodl4me is Ownable{
 
   using SafeERC20 for IERC20;
 
-  /** @notice Will release all Piggy Banks for withdrawal by their owners */ 
+  /** @notice Boolean value of releaseAll, if true = all HODL banks are
+  * released for withdrawals regardless of their hodlPeriod  */ 
   bool public releaseAll;
 
   /** 
