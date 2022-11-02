@@ -62,18 +62,18 @@ contract Hodl4me is Ownable{
   event Withdraw(address indexed user, uint hodlBankId);
 
   /** @dev Allow all users to withdraw funds before lockedPeriod is reached */
-  function allowWithdrawals() external onlyOwner {
+  function toggleReleaseAll() external onlyOwner {
       releaseAll = !releaseAll;
   }
 
   /**
-    * @dev Function for the deposit of tokens into HODL Bank
-    * @param _user The user address that will be allowed to withdraw funds in the future
-    * @param _hodlPeriod Unix timestamp until deposited funds are unlocked
-    * @param _hodlToken Contains the ERC20 token's contract address
-    * @param _tokenAmount Amount of tokens to be locked 
-    * Emits a {Deposited} event.
-    */
+  * @dev Function for the deposit of tokens into HODL Bank
+  * @param _user The user address that will be allowed to withdraw funds in the future
+  * @param _hodlPeriod Unix timestamp until deposited funds are unlocked
+  * @param _hodlToken Contains the ERC20 token's contract address
+  * @param _tokenAmount Amount of tokens to be locked 
+  * Emits a {Deposited} event.
+  */
   function hodlDeposit(address _user, 
                       address _hodlToken, 
                       uint _tokenAmount, 
@@ -102,7 +102,7 @@ contract Hodl4me is Ownable{
     _newHodlBank.active = true;
 
     /** @dev Index to new HODL Bank created by user */
-    uint _hodlBankId = getHodlBankCount(_user) + 1;
+    uint _hodlBankId = getHodlBankCount(_user);
     /** @dev Push new _newHodlBank object into user's HODL Bank mapping */
     userHodlBanks[_user].push(_newHodlBank);
 
