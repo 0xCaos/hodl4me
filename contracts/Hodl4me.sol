@@ -122,6 +122,9 @@ contract Hodl4me is Ownable{
         required: userHodlBanks[msg.sender][_hodlBankId].hodlPeriod
       });
 
+    /** @dev Setting active variable of HODL Bank to false, flagging user has already withdrawn from HODL Bank */
+    userHodlBanks[msg.sender][_hodlBankId].active == false;
+
     if (userHodlBanks[msg.sender][_hodlBankId].hodlToken == address(0)) { /** @dev HODL Bank contains Ether */
       // Sending Ether from HODL Bank back to Hodler
       payable(msg.sender).transfer(userHodlBanks[msg.sender][_hodlBankId].tokenAmount);
@@ -131,8 +134,6 @@ contract Hodl4me is Ownable{
           .safeTransferFrom(address(this), msg.sender, userHodlBanks[msg.sender][_hodlBankId].tokenAmount);
     }
 
-    /** @dev Setting active variable of HODL Bank to false, flagging user has already withdrawn from HODL Bank */
-    userHodlBanks[msg.sender][_hodlBankId].active == false;
     emit Withdraw(msg.sender, _hodlBankId);
   }
 
