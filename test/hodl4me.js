@@ -14,7 +14,6 @@ contract('Hodl4me', (accounts) => {
      */ 
     it('Should return releaseAll as false', async () => {
         const releaseAll = await hodl4me.releaseAll();
-        console.log(releaseAll);
         assert(releaseAll === false);
     });
 
@@ -24,7 +23,6 @@ contract('Hodl4me', (accounts) => {
     it('Happy path: Toggle releaseAll, should return as true now', async () => {
         await hodl4me.toggleReleaseAll();
         const releaseAll = await hodl4me.releaseAll();
-        console.log(releaseAll);
         assert(releaseAll === true);
     });
 
@@ -39,7 +37,7 @@ contract('Hodl4me', (accounts) => {
     });
     
     /********************************
-     * Testing hodlDeposit() function
+     * Testing hodlDeposit() function with Ether
      */
 
     /**
@@ -76,8 +74,6 @@ contract('Hodl4me', (accounts) => {
         let txInfo = await web3.eth.getTransaction(txHash);
         // Use blockNumber to retrieve epoch
         let blockInfo = await web3.eth.getBlock(txInfo.blockNumber);
-        // accessing timestamp in returned object
-        console.log(blockInfo.timestamp);
 
         const result = await hodl4me.getHodlBankInfo(accounts[0], 0);
         const {0: _hodlToken, 1: _tokenAmount, 2: _timeOfDeposit,
@@ -88,5 +84,21 @@ contract('Hodl4me', (accounts) => {
         assert(_hodlPeriod.toNumber() === desiredHodlPeriod);
         assert(_active === true);
     });
+
+    /********************************
+     * Testing hodlDeposit() function with ERC20 token
+     */
+
+    /**
+     * Unhappy path: User creating HODL bank but hodlToken is not a valid contract address
+     */
+     it('Unhappy path: User creating HODL Bank with non-contract address', async () => {
+        await expectRevert(
+            hodl4me.hodlDeposit(accounts[0], accounts[1], 100, 1698965928),
+                "Address needs to be a contract"
+        );
+    });
+
+    //require(_tokenAmount > 0, "Token amount can't be zero");
 
 });
