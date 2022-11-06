@@ -117,7 +117,7 @@ contract Hodl4me is Ownable, ReentrancyGuard {///, IERC20 , SafeERC20, Address {
     * @param _hodlBankId ID number of the HODL Bank the user wishes to withdraw from
     * Emits a {Withdraw} event.
     */
-  function hodlWithdrawal(uint _hodlBankId) external { ///nonReentrant() {
+  function hodlWithdrawal(uint _hodlBankId) external nonReentrant {
     /** @dev Store user's HODL bank into an object for a bit more readable code */
     HodlBankDetails memory _userHodlBank = userHodlBanks[msg.sender][_hodlBankId];
     /** @dev Requires HODL Bank to still be active */
