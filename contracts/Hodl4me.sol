@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.9;
+pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+//import "@openzeppelin/contracts/utils/Address.sol";
+//import "../node_modules/@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
@@ -21,9 +23,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /** @dev Custom error returns Unix timestamp at which HODL Bank's witdrawal is authorised */
 error StillLocked(uint required);
 
-contract Hodl4me is Ownable{
+contract Hodl4me is Ownable, ReentrancyGuard {///, IERC20 , SafeERC20, Address {
 
   using SafeERC20 for IERC20;
+  using Address for address;
 
   /** @notice Boolean value of releaseAll, if true = all HODL banks are
   * released for withdrawals regardless of their hodlPeriod  */ 
@@ -89,7 +92,7 @@ contract Hodl4me is Ownable{
       _newHodlBank.tokenAmount = msg.value;
     } else {  /** @dev User depositing ERC20 token */
       require(_tokenAmount > 0, "Token amount can't be zero");
-      require(_isContract(_hodlToken) == true, "Address needs to be a contract");
+      require(Address.isContract(_hodlToken) == true, "Address needs to be a contract");
       // Sending tokens from function caller to HODL Bank
       IERC20(_hodlToken).safeTransferFrom(msg.sender, address(this), _tokenAmount);
       _newHodlBank.tokenAmount = _tokenAmount;
@@ -114,24 +117,27 @@ contract Hodl4me is Ownable{
     * @param _hodlBankId ID number of the HODL Bank the user wishes to withdraw from
     * Emits a {Withdraw} event.
     */
-  function hodlWithdrawal(uint _hodlBankId) external {
-    require(userHodlBanks[msg.sender][_hodlBankId].active == true, "User already withdrawn from this HODL Bank");
+  function hodlWithdrawal(uint _hodlBankId) external { ///nonReentrant() {
+    /** @dev Store user's HODL bank into an object for a bit more readable code */
+    HodlBankDetails memory _userHodlBank = userHodlBanks[msg.sender][_hodlBankId];
+    /** @dev Requires HODL Bank to still be active */
+    require(_userHodlBank.active == true, "User already withdrawn from this HODL Bank");
     // Custom error message if HODL Period hasn't been reached yet
-    if (userHodlBanks[msg.sender][_hodlBankId].hodlPeriod > block.timestamp)
+    if (_userHodlBank.hodlPeriod > block.timestamp)
       revert StillLocked({
-        required: userHodlBanks[msg.sender][_hodlBankId].hodlPeriod
+        required: _userHodlBank.hodlPeriod
       });
 
     /** @dev Setting active variable of HODL Bank to false, flagging user has already withdrawn from HODL Bank */
-    userHodlBanks[msg.sender][_hodlBankId].active == false;
+    _userHodlBank.active == false;
 
-    if (userHodlBanks[msg.sender][_hodlBankId].hodlToken == address(0)) { /** @dev HODL Bank contains Ether */
-      // Sending Ether from HODL Bank back to Hodler
-      payable(msg.sender).transfer(userHodlBanks[msg.sender][_hodlBankId].tokenAmount);
+    if (_userHodlBank.hodlToken == address(0)) { /** @dev HODL Bank contains Ether */
+      // Sending Ether from HODL Bank back to HODLer
+      Address.sendValue(payable(msg.sender), _userHodlBank.tokenAmount);
     } else {  /** @dev HODL Bank contains ERC20 token */
       // Sending ERC20 token from HODL Bank back to HODLer
-      IERC20(userHodlBanks[msg.sender][_hodlBankId].hodlToken)
-          .safeTransferFrom(address(this), msg.sender, userHodlBanks[msg.sender][_hodlBankId].tokenAmount);
+      IERC20(_userHodlBank.hodlToken)
+          .safeTransferFrom(address(this), msg.sender, _userHodlBank.tokenAmount);
     }
 
     emit Withdraw(msg.sender, _hodlBankId);
@@ -166,24 +172,13 @@ contract Hodl4me is Ownable{
       uint _hodlPeriod,
       bool _active
   ) {
-    return (userHodlBanks[_user][_hodlBankId].hodlToken,
-            userHodlBanks[_user][_hodlBankId].tokenAmount,
-            userHodlBanks[_user][_hodlBankId].timeOfDeposit,
-            userHodlBanks[_user][_hodlBankId].hodlPeriod,
-            userHodlBanks[_user][_hodlBankId].active);
-  }
-
-  /** @notice Private helper functions */
-
-  /**
-    * @dev Simple private function to verify whether given address is at least from a contract.
-    * @notice This function only guarantees that given address is a contract, not necessarily
-    * an ERC20 contract.
-    * @param _hodlToken Contract address
-    * @return isContract Returns true if the address given is from a contract
-  */
-  function _isContract(address _hodlToken) private view returns (bool isContract) {    
-    return _hodlToken.code.length > 0; 
+    /** @dev Store user's HODL bank into an object for a bit more readable code */
+    HodlBankDetails memory _userHodlBank = userHodlBanks[_user][_hodlBankId];
+    return (_userHodlBank.hodlToken,
+            _userHodlBank.tokenAmount,
+            _userHodlBank.timeOfDeposit,
+            _userHodlBank.hodlPeriod,
+            _userHodlBank.active);
   }
 
 }

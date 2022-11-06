@@ -98,7 +98,50 @@ contract('Hodl4me', (accounts) => {
                 "Address needs to be a contract"
         );
     });
-
+    
+    /**
+     * Unhappy path: User did not send Ether when creating and Ether HODL Bank
+     */
     //require(_tokenAmount > 0, "Token amount can't be zero");
+
+    /**
+     * Happy path: User creating HODL bank successfully
+     */
+    
+    /********************************
+     * Testing hodlWithdrawal() function with HODL Banks containing Ether
+     */
+
+    /**
+     * Unhappy path: User trying to withdraw from invalid HODL Bank 
+     */
+
+    /**
+     * Unhappy path: User trying to withdraw from HODL Bank that's still locked
+     */
+
+    /**
+     * Happy path: User successfully withdraws from Ether HODL Bank containing 10 Ether
+     */
+
+    /**
+     * Unhappy path: User trying to withdraw from HODL Bank twice - Already withdrawn
+     */
+
+    /********************************
+     * Testing hodlWithdrawal() function with HODL Banks containing ERC20 Token
+     */
+
+    /**
+     * Unhappy path: User trying to withdraw from HODL Bank that's still locked
+     */
+
+    /**
+     * Happy path: User successfully withdraws from Ether HODL Bank containing 10 Ether
+     */
+
+    /**
+     * Unhappy path: User trying to withdraw from HODL Bank twice - Already withdrawn
+     */
 
 });
