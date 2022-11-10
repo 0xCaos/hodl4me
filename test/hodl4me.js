@@ -1,6 +1,6 @@
 const Hodl4me = artifacts.require('Hodl4me');
 const { web3 } = require('@openzeppelin/test-helpers/src/setup'); // Importing web3 library
-const { expectRevert, time, snapshot } = require('@openzeppelin/test-helpers');
+const { expectRevert, time, snapshot, BN } = require('@openzeppelin/test-helpers');
 const { current } = require('@openzeppelin/test-helpers/src/balance');
 
 contract('Hodl4me', (accounts) => {
@@ -68,8 +68,7 @@ contract('Hodl4me', (accounts) => {
     it('User created Ether HODL Bank with 10 Ether', async () => {
         const desiredHodlPeriod = 1698965928; // Some time in 2023
         let txHash;
-        await hodl4me.hodlDeposit(accounts[0], nullAddress, 0, desiredHodlPeriod, 
-            {value: web3.utils.toBN(await web3.utils.toWei('10', 'ether'))})
+        await hodl4me.hodlDeposit(accounts[0], nullAddress, 0, desiredHodlPeriod, {value: web3.utils.toWei('10', "ether")})
          .on('transactionHash', function(hash){ //retrieve txHash
             txHash = hash;
         });
@@ -82,7 +81,7 @@ contract('Hodl4me', (accounts) => {
         const {0: _hodlToken, 1: _tokenAmount, 2: _timeOfDeposit,
                 3: _hodlPeriod, 4: _active} = result;
         assert(_hodlToken === nullAddress);
-        assert(_tokenAmount.toNumber() === 10);
+        assert(web3.utils.fromWei(_tokenAmount).toString() === '10');
         assert(_timeOfDeposit.toNumber() === blockInfo.timestamp);
         assert(_hodlPeriod.toNumber() === desiredHodlPeriod);
         assert(_active === true);
@@ -152,9 +151,7 @@ contract('Hodl4me', (accounts) => {
         // Get number of seconds until unlock to go travel in the future
         let currentTimestamp = await time.latest();
         currentTimestamp = currentTimestamp.toNumber();
-        console.log(`Present Timestamp: ${currentTimestamp}`);
         secondsUntilUnlock = (desiredHodlPeriod - currentTimestamp);
-        console.log(`Number of seconds to travel in the future: ${secondsUntilUnlock}`);
 
         // Take a snapshot of current Timestamp to revert at the end of test
         const snapshotA = await snapshot();
@@ -163,7 +160,6 @@ contract('Hodl4me', (accounts) => {
         await time.increase(secondsUntilUnlock);
         currentTimestamp = await time.latest();
         currentTimestamp = currentTimestamp.toNumber();
-        console.log(`We are in the future: ${currentTimestamp}`);
 
         // Get user balance before withdrawing from bank
         const balanceBefore = await web3.eth.getBalance(accounts[0]);
@@ -176,10 +172,6 @@ contract('Hodl4me', (accounts) => {
 
         //Revert blockchain Timestamp to initial time
         await snapshotA.restore();
-        // Get number of seconds until unlock to go travel in the future
-        currentTimestamp = await time.latest();
-        currentTimestamp = currentTimestamp.toNumber();
-        console.log(`We are in back in the past: ${currentTimestamp}`);
 
         // Balance now should have 10 Ether more than before withdrawal
         assert(Math.ceil((web3.utils.fromWei(balanceAfter, 'ether') - web3.utils.fromWei(balanceBefore, 'ether'))) === 10);
@@ -196,9 +188,7 @@ contract('Hodl4me', (accounts) => {
         // Get number of seconds until unlock to go travel in the future
         let currentTimestamp = await time.latest();
         currentTimestamp = currentTimestamp.toNumber();
-        console.log(`Present Timestamp: ${currentTimestamp}`);
         secondsUntilUnlock = (desiredHodlPeriod - currentTimestamp);
-        console.log(`Number of seconds to travel in the future: ${secondsUntilUnlock}`);
 
         // Take a snapshot of current Timestamp to revert at the end of test
         const snapshotA = await snapshot();
@@ -207,45 +197,26 @@ contract('Hodl4me', (accounts) => {
         await time.increase(secondsUntilUnlock);
         currentTimestamp = await time.latest();
         currentTimestamp = currentTimestamp.toNumber();
-        console.log(`We are in the future: ${currentTimestamp}`);
 
-        let userHodlBankCount = await hodl4me.getHodlBankCount(accounts[0]);
-        console.log(`Number of HODL Banks user has: ${userHodlBankCount.toNumber()}`);
-
-        const result1 = await hodl4me.getHodlBankInfo(accounts[0], 0);
-        const {0: _hodlToken1, 1: _tokenAmount1, 2: _timeOfDeposit1,
-                3: _hodlPeriod1, 4: _active1} = result1;
-        console.log(`Hodl Bank is active: ${_active1}`);
-
-        let hodlBankValue = web3.utils.toBN(_tokenAmount1);
-        hodlBankValue = hodlBankValue.toNumber();
-        console.log(`HODL Bank value: ${hodlBankValue}`);
-                
-        // Print balance of contract before withdrawal
-        let contractBalance = await web3.eth.getBalance(contract.options.address);
-        contractBalance = contractBalance.toNumber();
-        console.log(`Balance in contract before withdrawal: ${contractBalance}`);
+        // Get user balance before withdrawing from bank
+        const balanceBefore = await web3.eth.getBalance(accounts[0]);
 
         // At this point in time HODL Bank should be unlocked
         await hodl4me.hodlWithdrawal(0);
 
-        // Print balance of contract after withdrawal
-        contractBalance = await web3.eth.getBalance(contract.options.address);
-        contractBalance = contractBalance.toNumber();
-        console.log(`Balance in contract after withdrawal: ${contractBalance}`);
+        // Get user balance after withdrawing from bank
+        const balanceAfter = await web3.eth.getBalance(accounts[0]);
 
-        const result = await hodl4me.getHodlBankInfo(accounts[0], 0);
-        const {0: _hodlToken, 1: _tokenAmount, 2: _timeOfDeposit,
-                3: _hodlPeriod, 4: _active} = result;
-        console.log(`Hodl Bank is active: ${_active}`);
-        //assert(_active === false);
+        // Balance now should have 10 Ether more than before withdrawal
+        assert(Math.ceil((web3.utils.fromWei(balanceAfter, 'ether') - web3.utils.fromWei(balanceBefore, 'ether'))) === 10);
 
-        await hodl4me.hodlWithdrawal(0);
+        await expectRevert(            
+            hodl4me.hodlWithdrawal(0),
+                "User already withdrawn from this HODL Bank"
+        );
 
-        // await expectRevert(            
-        //     hodl4me.hodlWithdrawal(0),
-        //         "User already withdrawn from this HODL Bank"
-        // );
+        //Revert blockchain Timestamp to initial time
+        await snapshotA.restore();
 
     });
 

@@ -129,7 +129,7 @@ contract Hodl4me is Ownable, ReentrancyGuard {///, IERC20 , SafeERC20, Address {
       });
 
     /** @dev Setting active variable of HODL Bank to false, flagging user has already withdrawn from HODL Bank */
-    _userHodlBank.active == false;
+    userHodlBanks[msg.sender][_hodlBankId].active = false;
 
     if (_userHodlBank.hodlToken == address(0)) { /** @dev HODL Bank contains Ether */
       // Sending Ether from HODL Bank back to HODLer
