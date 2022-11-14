@@ -1,4 +1,15 @@
 // SPDX-License-Identifier: MIT
+
+/*
+github.com/0xCaos
+░░░████╗░░░░░░░░░░██████╗░█████╗░░█████╗░░██████╗░
+░░██╔═██╗░░░░░░░░██╔════╝██╔══██╗██╔══██╗██╔════╝░
+░██╔╝░░██╗██╗░██╗██║░░░░░███████║██║░░██║╚█████╗░░
+░╚██║░██╔╝░████╔╝██║░░░░░██╔══██║██║░░██║░░░░░██╗░
+░░╚████╔╝░██╔═██╗░██████╗██║░░██║╚█████╔╝██████╔╝░
+░░░╚═══╝░░╚═╝░╚═╝░╚═════╝╚═╝░░╚═╝░╚════╝░╚═════╝░░
+*/
+
 pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -70,9 +81,9 @@ contract Hodl4me is Ownable, ReentrancyGuard {///, IERC20 , SafeERC20, Address {
   }
 
   /**
-  * @dev Function for the deposit of tokens into HODL Bank
+  * @dev Function for the staking of tokens into HODL Bank
   * @param _user The user address that will be allowed to withdraw funds in the future
-  * @param _hodlPeriod Unix timestamp until deposited funds are unlocked
+  * @param _hodlPeriod Unix timestamp until staked funds are unlocked
   * @param _hodlToken Contains the ERC20 token's contract address
   * @param _tokenAmount Amount of tokens to be locked 
   * Emits a {Deposited} event.
@@ -87,10 +98,10 @@ contract Hodl4me is Ownable, ReentrancyGuard {///, IERC20 , SafeERC20, Address {
     /** @dev New object to be pushed into userHodlBanks */
     HodlBankDetails memory _newHodlBank;
 
-    if (_hodlToken == address(0)) { /** @dev Address zero assumes User is depositing Ether */
+    if (_hodlToken == address(0)) { /** @dev Address zero assumes User is staking Ether */
       require(msg.value > 0, "Ether amount can't be zero");
       _newHodlBank.tokenAmount = msg.value;
-    } else {  /** @dev User depositing ERC20 token */
+    } else {  /** @dev User staking ERC20 token */
       require(_tokenAmount > 0, "Token amount can't be zero");
       require(Address.isContract(_hodlToken) == true, "Address needs to be a contract");
       // Sending tokens from function caller to HODL Bank
@@ -162,7 +173,7 @@ contract Hodl4me is Ownable, ReentrancyGuard {///, IERC20 , SafeERC20, Address {
     * @param _hodlBankId ID of HODL Bank to get info from
     * @return _hodlToken Contains the ERC20 token's contract address
     * @return _tokenAmount Amount of tokens locked
-    * @return _timeOfDeposit Unix timestamp of the moment of deposit
+    * @return _timeOfDeposit Unix timestamp of the moment of staking
     * @return _hodlPeriod Unix timestamp at which user can withdraw tokens
     * @return _active Boolean that returns true if HODL Bank holds funds
   */

@@ -1,13 +1,15 @@
 const Hodl4me = artifacts.require('Hodl4me');
+const Hodl4MeToken = artifacts.require('Hodl4MeToken');
 const { web3 } = require('@openzeppelin/test-helpers/src/setup'); // Importing web3 library
 const { expectRevert, time, snapshot, BN } = require('@openzeppelin/test-helpers');
 const { current } = require('@openzeppelin/test-helpers/src/balance');
 
 contract('Hodl4me', (accounts) => {
-    let hodl4me;
+    let hodl4me, hodl4MeToken;
     let nullAddress = '0x0000000000000000000000000000000000000000';
     beforeEach(async () => {
         hodl4me = await Hodl4me.new();
+        hodl4MeToken = await Hodl4MeToken.new();
     });
 
     /** 
@@ -16,6 +18,8 @@ contract('Hodl4me', (accounts) => {
      */ 
     it('Should return releaseAll as false', async () => {
         const releaseAll = await hodl4me.releaseAll();
+        console.log((await hodl4MeToken.balanceOf(accounts[0])).toString());
+        
         assert(releaseAll === false);
     });
 
@@ -105,12 +109,40 @@ contract('Hodl4me', (accounts) => {
     /**
      * Unhappy path: User did not send ERC20 Tokens when creating an ERC20 HODL Bank
      */
-    //require(_tokenAmount > 0, "Token amount can't be zero");
+    it('Unhappy path: User creating ERC20 HODL Bank but not sending Tokens', async () => {
+        let holdTokenAddress = (await hodl4MeToken.address).toString();
+        await expectRevert(
+            hodl4me.hodlDeposit(accounts[0], holdTokenAddress, 0, 1698965928),
+                "Token amount can't be zero"
+        );
+    });
 
     /**
      * Happy path: User creating ERC20 Token HODL bank successfully
      */
-    
+     it('User created Ether HODL Bank with 10 Ether', async () => {
+        const desiredHodlPeriod = 1698965928; // Some time in 2023
+        let holdTokenAddress = (await hodl4MeToken.address).toString();
+        let txHash;
+        await hodl4me.hodlDeposit(accounts[0], holdTokenAddress, web3.utils.toWei('100', "ether"), desiredHodlPeriod)
+         .on('transactionHash', function(hash){ //retrieve txHash
+            txHash = hash;
+        });
+        // Use txHash to retrieve tx blockNumber
+        let txInfo = await web3.eth.getTransaction(txHash);
+        // Use blockNumber to retrieve epoch
+        let blockInfo = await web3.eth.getBlock(txInfo.blockNumber);
+
+        const result = await hodl4me.getHodlBankInfo(accounts[0], 0);
+        const {0: _hodlToken, 1: _tokenAmount, 2: _timeOfDeposit,
+                3: _hodlPeriod, 4: _active} = result;
+        assert(_hodlToken.toString() === holdTokenAddress);
+        assert(web3.utils.fromWei(_tokenAmount).toString() === '100');
+        assert(_timeOfDeposit.toNumber() === blockInfo.timestamp);
+        assert(_hodlPeriod.toNumber() === desiredHodlPeriod);
+        assert(_active === true);
+    });
+
     /********************************
      * Testing hodlWithdrawal() function with HODL Bank containing Ether
      */
