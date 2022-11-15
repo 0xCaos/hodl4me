@@ -110,9 +110,9 @@ contract('Hodl4me', (accounts) => {
      * Unhappy path: User did not send ERC20 Tokens when creating an ERC20 HODL Bank
      */
     it('Unhappy path: User creating ERC20 HODL Bank but not sending Tokens', async () => {
-        let holdTokenAddress = (await hodl4MeToken.address).toString();
+        let hodlTokenAddress = (await hodl4MeToken.address).toString();
         await expectRevert(
-            hodl4me.hodlDeposit(accounts[0], holdTokenAddress, 0, 1698965928),
+            hodl4me.hodlDeposit(accounts[0], hodlTokenAddress, 0, 1698965928),
                 "Token amount can't be zero"
         );
     });
@@ -120,11 +120,14 @@ contract('Hodl4me', (accounts) => {
     /**
      * Happy path: User creating ERC20 Token HODL bank successfully
      */
-     it('User created Ether HODL Bank with 10 Ether', async () => {
+     it('User created ERC20 HODL Bank with 100 tokens', async () => {
         const desiredHodlPeriod = 1698965928; // Some time in 2023
-        let holdTokenAddress = (await hodl4MeToken.address).toString();
+        let hodlTokenAddress = (await hodl4MeToken.address).toString();
+        let hodl4MeAddress = (await hodl4me.address).toString();
         let txHash;
-        await hodl4me.hodlDeposit(accounts[0], holdTokenAddress, web3.utils.toWei('100', "ether"), desiredHodlPeriod)
+        await hodl4MeToken.approve(hodl4MeAddress, web3.utils.toWei("100", "ether"));
+        //await hodl4me.approveERC20(hodl4MeAddress, 10000);//web3.utils.toWei("100", "ether"));
+        await hodl4me.hodlDeposit(accounts[0], hodlTokenAddress, web3.utils.toWei("100", "ether"), desiredHodlPeriod)
          .on('transactionHash', function(hash){ //retrieve txHash
             txHash = hash;
         });
@@ -136,7 +139,7 @@ contract('Hodl4me', (accounts) => {
         const result = await hodl4me.getHodlBankInfo(accounts[0], 0);
         const {0: _hodlToken, 1: _tokenAmount, 2: _timeOfDeposit,
                 3: _hodlPeriod, 4: _active} = result;
-        assert(_hodlToken.toString() === holdTokenAddress);
+        assert(_hodlToken.toString() === hodlTokenAddress);
         assert(web3.utils.fromWei(_tokenAmount).toString() === '100');
         assert(_timeOfDeposit.toNumber() === blockInfo.timestamp);
         assert(_hodlPeriod.toNumber() === desiredHodlPeriod);
@@ -257,12 +260,46 @@ contract('Hodl4me', (accounts) => {
      */
 
     /**
-     * Unhappy path: User trying to withdraw from HODL Bank that's still locked
+     * Happy path: User successfully withdraws ERC20 Token from HODL Bank containing 10 Tokens
      */
+     it('User withdrawing 100 ERC20 Tokens from HODL Bank successfully', async () => {
+        const desiredHodlPeriod = 1698965928; // Some time in 2023
+        
+        let hodlTokenAddress = (await hodl4MeToken.address).toString();
+        let hodl4MeAddress = (await hodl4me.address).toString();
+        await hodl4MeToken.approve(hodl4MeAddress, web3.utils.toWei("1000", "ether"));
+        //await hodl4me.approveERC20(hodl4MeAddress, 10000);//web3.utils.toWei("100", "ether"));
+        await hodl4me.hodlDeposit(accounts[0], hodlTokenAddress, web3.utils.toWei("100", "ether"), desiredHodlPeriod)
 
-    /**
-     * Happy path: User successfully withdraws from Ether HODL Bank containing 10 Ether
-     */
+        // Get number of seconds until unlock to go travel in the future
+        let currentTimestamp = await time.latest();
+        currentTimestamp = currentTimestamp.toNumber();
+        secondsUntilUnlock = (desiredHodlPeriod - currentTimestamp);
+
+        // Take a snapshot of current Timestamp to revert at the end of test
+        const snapshotA = await snapshot();
+
+        // Travel in the future where HODL Bank will be available to withdraw from
+        await time.increase(secondsUntilUnlock);
+        currentTimestamp = await time.latest();
+        currentTimestamp = currentTimestamp.toNumber();
+
+        // Get user balance before withdrawing from bank
+        const balanceBefore = await hodl4MeToken.balanceOf(accounts[0]);
+        console.log(web3.utils.fromWei(balanceBefore, 'ether'));
+
+        // At this point in time HODL Bank should be unlocked
+        await hodl4me.hodlWithdrawal(0);
+
+        // // Get user balance after withdrawing from bank
+        // const balanceAfter = await hodl4MeToken.balanceOf(accounts[0]);
+
+        // //Revert blockchain Timestamp to initial time
+        // await snapshotA.restore();
+
+        // // Balance now should have 10 Ether more than before withdrawal
+        // assert(Math.ceil((web3.utils.fromWei(balanceAfter, 'ether') - web3.utils.fromWei(balanceBefore, 'ether'))) === 100);
+    });
 
     /**
      * Unhappy path: User trying to withdraw from HODL Bank twice - Already withdrawn

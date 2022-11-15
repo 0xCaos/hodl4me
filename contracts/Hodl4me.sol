@@ -15,8 +15,6 @@ pragma solidity 0.8.17;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-//import "@openzeppelin/contracts/utils/Address.sol";
-//import "../node_modules/@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
@@ -165,6 +163,15 @@ contract Hodl4me is Ownable, ReentrancyGuard {///, IERC20 , SafeERC20, Address {
   function getHodlBankCount(address _user) public view returns(uint hodlBankCount) {
     return userHodlBanks[_user].length;
   }
+
+  /**
+    * @dev Approval function for ERC20 token being deposited
+    * @param _token ERC20 token contract address
+    * @param _tokenAmount ERC20 tokens allowance for contract to spend
+  */
+  function approveERC20(address _token, uint _tokenAmount) public {
+    IERC20(_token).approve(address(this), _tokenAmount); //Replace by permit() in the future (PermitERC20 gasless)
+  }  
 
   /**
     * @dev This function returns values from user's HODL Bank
