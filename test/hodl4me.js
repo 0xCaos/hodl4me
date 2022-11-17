@@ -1,3 +1,12 @@
+/*
+github.com/0xCaos
+░░░████╗░░░░░░░░░░██████╗░█████╗░░█████╗░░██████╗░
+░░██╔═██╗░░░░░░░░██╔════╝██╔══██╗██╔══██╗██╔════╝░
+░██╔╝░░██╗██╗░██╗██║░░░░░███████║██║░░██║╚█████╗░░
+░╚██╗░██╔╝░████╔╝██║░░░░░██╔══██║██║░░██║░░░░░██╗░
+░░╚████╔╝░██╔═██╗░██████╗██║░░██║╚█████╔╝██████╔╝░
+░░░╚═══╝░░╚═╝░╚═╝░╚═════╝╚═╝░░╚═╝░╚════╝░╚═════╝░░
+*/
 const Hodl4me = artifacts.require('Hodl4me');
 const Hodl4MeToken = artifacts.require('Hodl4MeToken');
 const { web3 } = require('@openzeppelin/test-helpers/src/setup'); // Importing web3 library
@@ -286,19 +295,18 @@ contract('Hodl4me', (accounts) => {
 
         // Get user balance before withdrawing from bank
         const balanceBefore = await hodl4MeToken.balanceOf(accounts[0]);
-        console.log(web3.utils.fromWei(balanceBefore, 'ether'));
 
         // At this point in time HODL Bank should be unlocked
         await hodl4me.hodlWithdrawal(0);
 
         // // Get user balance after withdrawing from bank
-        // const balanceAfter = await hodl4MeToken.balanceOf(accounts[0]);
+        const balanceAfter = await hodl4MeToken.balanceOf(accounts[0]);
 
         // //Revert blockchain Timestamp to initial time
-        // await snapshotA.restore();
+        await snapshotA.restore();
 
         // // Balance now should have 10 Ether more than before withdrawal
-        // assert(Math.ceil((web3.utils.fromWei(balanceAfter, 'ether') - web3.utils.fromWei(balanceBefore, 'ether'))) === 100);
+        assert(Math.ceil((web3.utils.fromWei(balanceAfter, 'ether') - web3.utils.fromWei(balanceBefore, 'ether'))) === 100);
     });
 
     /**

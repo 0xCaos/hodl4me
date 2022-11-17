@@ -146,7 +146,7 @@ contract Hodl4me is Ownable, ReentrancyGuard {///, IERC20 , SafeERC20, Address {
     } else {  /** @dev HODL Bank contains ERC20 token */
       // Sending ERC20 token from HODL Bank back to HODLer
       IERC20(_userHodlBank.hodlToken)
-          .safeTransferFrom(address(this), msg.sender, _userHodlBank.tokenAmount);
+          .safeTransfer(msg.sender, _userHodlBank.tokenAmount);
     }
 
     emit Withdraw(msg.sender, _hodlBankId);
